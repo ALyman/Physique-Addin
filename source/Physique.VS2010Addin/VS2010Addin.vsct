@@ -1,0 +1,81 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <!--  This is the file that defines the actual layout and type of the commands.
+        It is divided in different sections (e.g. command definition, command
+        placement, ...), with each defining a specific set of properties.
+        See the comment before each section for more details about how to
+        use it. -->
+
+  <!--  The VSCT compiler (the tool that translates this file into the binary 
+        format that VisualStudio will consume) has the ability to run a preprocessor 
+        on the vsct file; this preprocessor is (usually) the C++ preprocessor, so 
+        it is possible to define includes and macros with the same syntax used 
+        in C++ files. Using this ability of the compiler here, we include some files 
+        defining some of the constants that we will use inside the file. -->
+
+  <!--This is the file that defines the IDs for all the commands exposed by VisualStudio. -->
+  <Extern href="stdidcmd.h"/>
+
+  <!--This header contains the command ids for the menus provided by the shell. -->
+  <Extern href="vsshlids.h"/>
+
+  <!--Definition of some VSCT specific constants. In this sample we use it for the IDs inside the guidOfficeIcon group. -->
+  <Extern href="msobtnid.h"/>
+
+
+
+
+  <!--The Commands section is where we the commands, menus and menu groups are defined.
+      This section uses a Guid to identify the package that provides the command defined inside it. -->
+  <Commands package="guidVS2010AddinPkg">
+    <Groups>
+      <Group guid="guidVS2010AddinCmdSet" id="TopLevelItemContextGroup" priority="0x0001">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_ITEMNODE"/>
+      </Group>
+      <Group guid="guidVS2010AddinCmdSet" id="TopLevelProjectContextGroup" priority="0x0001">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_PROJNODE"/>
+      </Group>
+      <Group guid="guidVS2010AddinCmdSet" id="RunTargetMenuGroup" priority="0x0600">
+        <Parent guid="guidVS2010AddinCmdSet" id="cmdidRunTargetMenu"/>
+      </Group>
+    </Groups>
+    <Menus>
+      <Menu guid="guidVS2010AddinCmdSet" id="cmdidRunTargetMenu" priority="0x0100" type="Menu">
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <CommandName>Run Target...</CommandName>
+          <ButtonText>Run Target...</ButtonText>
+        </Strings>
+      </Menu>
+    </Menus>
+    <Buttons>
+      <Button guid="guidVS2010AddinCmdSet" id="cmdidRunTargetDynamicDummy" priority="0x0000" type="Button">
+        <Parent guid="guidVS2010AddinCmdSet" id="RunTargetMenuGroup" />
+        <CommandFlag>DynamicItemStart</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <CommandName>cmdidTestSubCommand</CommandName>
+          <ButtonText>DUMMY</ButtonText>
+        </Strings>
+      </Button>
+    </Buttons>
+  </Commands>
+  <CommandPlacements>
+    <CommandPlacement guid="guidVS2010AddinCmdSet" id="cmdidRunTargetMenu" priority="0x0001">
+      <Parent guid="guidVS2010AddinCmdSet" id="TopLevelItemContextGroup"/>
+    </CommandPlacement>
+    <CommandPlacement guid="guidVS2010AddinCmdSet" id="cmdidRunTargetMenu" priority="0x0001">
+      <Parent guid="guidVS2010AddinCmdSet" id="TopLevelProjectContextGroup"/>
+    </CommandPlacement>
+  </CommandPlacements>
+  <Symbols>
+    <GuidSymbol name="guidVS2010AddinPkg" value="{fec7f6b0-3827-41c3-8bb9-7d9967ea1444}" />
+    <GuidSymbol name="guidVS2010AddinCmdSet" value="{a009d743-0097-4fbf-9ef1-53476b40561e}">
+      <IDSymbol name="TopLevelItemContextGroup" value="0x1000"/>
+      <IDSymbol name="TopLevelProjectContextGroup" value="0x1001"/>
+      <IDSymbol name="cmdidRunTargetMenu" value="0x100"/>
+      <IDSymbol name="RunTargetMenuGroup" value="0x101"/>
+      <IDSymbol name="cmdidRunTargetDynamicDummy" value="0x200"/>
+    </GuidSymbol>
+  </Symbols>
+</CommandTable>

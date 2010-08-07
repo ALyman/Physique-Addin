@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{2BA4271C-EACB-4D86-8875-23A3AD87D82E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Physique.VS2010Addin", "source\Physique.VS2010Addin\Physique.VS2010Addin.csproj", "{011A8E3F-F17E-44AD-90B7-6183919386F0}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{011A8E3F-F17E-44AD-90B7-6183919386F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{011A8E3F-F17E-44AD-90B7-6183919386F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{011A8E3F-F17E-44AD-90B7-6183919386F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{011A8E3F-F17E-44AD-90B7-6183919386F0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
