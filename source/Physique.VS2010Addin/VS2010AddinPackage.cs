@@ -9,6 +9,9 @@ using System.Runtime.InteropServices;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Execution;
 using Microsoft.VisualStudio.Shell;
+using Microsoft.Build.Framework;
+using Microsoft.VisualStudio.Shell.Interop;
+using Microsoft.VisualStudio;
 
 namespace Physique.VS2010Addin
 {
@@ -57,6 +60,8 @@ namespace Physique.VS2010Addin
             base.OnLoadOptions(key, stream);
         }
 
+        IVsOutputWindowPane outputPane;
+
         /// <summary>
         /// Initialization of the package; this method is called right after the package is sited, so this is the place
         /// where you can put all the initilaization code that rely on services provided by VisualStudio.
@@ -65,6 +70,24 @@ namespace Physique.VS2010Addin
         {
             Trace.WriteLine(string.Format(CultureInfo.CurrentCulture, "Entering Initialize() of: {0}", this.ToString()));
             base.Initialize();
+
+            var outputWindowService = GetService(typeof(SVsOutputWindow)) as IVsOutputWindow;
+            if (outputWindowService != null)
+            {
+                Guid guidPane = new Guid(GuidList.guidVS2010AddinOutputPane);
+                if (outputWindowService.GetPane(ref guidPane, out outputPane) != VSConstants.S_OK)
+                {
+                    int createPaneResult = outputWindowService.CreatePane(guidPane, "Run Target", 0, 1);
+                    if (createPaneResult != VSConstants.S_OK)
+                    {
+                        throw new NotSupportedException();
+                    }
+                    if (outputWindowService.GetPane(ref guidPane, out outputPane) != VSConstants.S_OK)
+                    {
+                        throw new NotSupportedException();
+                    }
+                }
+            }
 
             // Add our command handlers for menu (commands must exist in the .vsct file)
             OleMenuCommandService mcs = GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
@@ -153,10 +176,27 @@ namespace Physique.VS2010Addin
                 if (index < targets.Length)
                 {
                     var target = targets[index];
+
+                    outputPane.Activate();
+                    outputPane.OutputString(string.Format("Running target {0} on project {1}... ", target.Name, project.FullPath));
+
+                    // TODO: Is it possible to get access to the VS-internal MSBuild engine and use that?
                     bool buildResult = project.Build(
                         targets[index].Name,
-                        new[] { new OutputWindowLogger() }
+                        new ILogger[] {
+                            // TODO: Why does VS deadlock when I try to output to the output window?  Can I get a hold of VS's internal ILogger, perhaps?
+                            ////new OutputWindowLogger(outputPane) { Verbosity = LoggerVerbosity.Normal }
+                        }
                     );
+
+                    if (buildResult)
+                    {
+                        outputPane.OutputString("SUCCESS\n");
+                    }
+                    else
+                    {
+                        outputPane.OutputString("FAILED\n");
+                    }
                 }
             }
         }

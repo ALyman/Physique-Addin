@@ -9,7 +9,15 @@ namespace Physique.VS2010Addin
 {
     public class OutputWindowLogger : Logger
     {
-        public void Initialize(IEventSource eventSource)
+        private int indent;
+        private Microsoft.VisualStudio.Shell.Interop.IVsOutputWindowPane outputPane;
+
+        public OutputWindowLogger(Microsoft.VisualStudio.Shell.Interop.IVsOutputWindowPane outputPane)
+        {
+            this.outputPane = outputPane;
+        }
+
+        public override void Initialize(IEventSource eventSource)
         {
             eventSource.ProjectStarted += new ProjectStartedEventHandler(eventSource_ProjectStarted);
             eventSource.TaskStarted += new TaskStartedEventHandler(eventSource_TaskStarted);
@@ -18,7 +26,6 @@ namespace Physique.VS2010Addin
             eventSource.ErrorRaised += new BuildErrorEventHandler(eventSource_ErrorRaised);
             eventSource.ProjectFinished += new ProjectFinishedEventHandler(eventSource_ProjectFinished);
         }
-
 
         void eventSource_ErrorRaised(object sender, BuildErrorEventArgs e)
         {
@@ -90,11 +97,7 @@ namespace Physique.VS2010Addin
         /// </summary>
         private void WriteLine(string line, BuildEventArgs e)
         {
-            //for (int i = indent; i > 0; i--)
-            //{
-            //    streamWriter.Write("\t");
-            //}
-            //streamWriter.WriteLine(line + e.Message);
+            outputPane.OutputStringThreadSafe(line + e.Message);
         }
 
         /// <summary>
@@ -103,8 +106,7 @@ namespace Physique.VS2010Addin
         /// </summary>
         public override void Shutdown()
         {
+            this.outputPane = null;
         }
-
-        private int indent;
     }
 }
