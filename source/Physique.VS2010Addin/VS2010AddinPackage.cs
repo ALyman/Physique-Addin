@@ -1,17 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.Design;
 using System.Diagnostics;
 using System.Globalization;
-using System.Runtime.InteropServices;
-using System.ComponentModel.Design;
-using System.Linq;
-using Microsoft.Win32;
-using Microsoft.VisualStudio;
-using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.OLE.Interop;
-using Microsoft.VisualStudio.Shell;
-using EnvDTE;
 using System.IO;
-using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
+using Microsoft.Build.Evaluation;
+using Microsoft.Build.Execution;
+using Microsoft.VisualStudio.Shell;
 
 namespace Physique.VS2010Addin
 {
@@ -60,11 +57,6 @@ namespace Physique.VS2010Addin
             base.OnLoadOptions(key, stream);
         }
 
-        const int MAX_TARGETS = 20;
-
-        OleMenuCommand runTargetMenu;
-        List<OleMenuCommand> targetCommands;
-
         /// <summary>
         /// Initialization of the package; this method is called right after the package is sited, so this is the place
         /// where you can put all the initilaization code that rely on services provided by VisualStudio.
@@ -78,26 +70,40 @@ namespace Physique.VS2010Addin
             OleMenuCommandService mcs = GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
             if (null != mcs)
             {
-                var runTargetMenuId = new CommandID(GuidList.guidVS2010AddinCmdSet, (int)PkgCmdIDList.cmdidRunTargetMenu);
-                runTargetMenu = new OleMenuCommand(null, runTargetMenuId);
-                runTargetMenu.BeforeQueryStatus += new EventHandler(RunTargetMenu_BeforeQueryStatus);
-                mcs.AddCommand(runTargetMenu);
-
-                for (int i = 0; i < MAX_TARGETS; i++)
-                {
-                    var targetDummyId = new CommandID(GuidList.guidVS2010AddinCmdSet, PkgCmdIDList.cmdidRunTargetDynamicDummy + i);
-                    var targetDummy = new OleMenuCommand(new EventHandler(RunTargetItem_Invoke), targetDummyId)
-                    {
-                        Visible = false
-                    };
-                    targetDummy.BeforeQueryStatus += new EventHandler(RunTargetItem_BeforeQueryStatus);
-                    mcs.AddCommand(targetDummy);
-                    targetCommands.Add(targetDummy);
-                }
+                InitializeMenus(mcs);
             }
         }
 
         #endregion
+
+        const int MAX_TARGETS = 20;
+
+        OleMenuCommand runTargetMenu;
+        List<OleMenuCommand> targetCommands = new List<OleMenuCommand>();
+
+        ProjectCollection loadedProjects = new ProjectCollection();
+        Project project;
+        ProjectTargetInstance[] targets;
+
+        private void InitializeMenus(OleMenuCommandService mcs)
+        {
+            var runTargetMenuId = new CommandID(GuidList.guidVS2010AddinCmdSet, (int)PkgCmdIDList.cmdidRunTargetMenu);
+            runTargetMenu = new OleMenuCommand(null, runTargetMenuId);
+            runTargetMenu.BeforeQueryStatus += new EventHandler(RunTargetMenu_BeforeQueryStatus);
+            mcs.AddCommand(runTargetMenu);
+
+            for (int i = 0; i < MAX_TARGETS; i++)
+            {
+                var targetDummyId = new CommandID(GuidList.guidVS2010AddinCmdSet, PkgCmdIDList.cmdidRunTargetDynamicDummy + i);
+                var targetDummy = new OleMenuCommand(new EventHandler(RunTargetItem_Invoke), targetDummyId)
+                {
+                    Visible = false
+                };
+                targetDummy.BeforeQueryStatus += new EventHandler(RunTargetItem_BeforeQueryStatus);
+                mcs.AddCommand(targetDummy);
+                targetCommands.Add(targetDummy);
+            }
+        }
 
         void RunTargetMenu_BeforeQueryStatus(object sender, EventArgs e)
         {
@@ -105,63 +111,59 @@ namespace Physique.VS2010Addin
             if (file != null && IsMsBuildFile(file))
             {
                 runTargetMenu.Visible = true;
+                loadedProjects.UnloadAllProjects();
+                project = loadedProjects.LoadProject(file);
+                targets = (from target in project.Targets.Values
+                           where !target.Name.Substring(1).Any(ch => char.IsUpper(ch))
+                                 || !Path.GetFileName(target.FullPath).StartsWith("Microsoft")
+                           select target).ToArray();
+                Debug.Assert(MAX_TARGETS > targets.Length);
             }
             else
             {
                 runTargetMenu.Visible = false;
+                targets = null;
             }
         }
 
         void RunTargetItem_BeforeQueryStatus(object sender, EventArgs e)
         {
-            var file = GetCurrentSelectedItem();
-            if (file != null && IsMsBuildFile(file))
+            if (targets != null)
             {
-                var project = new Microsoft.Build.Evaluation.Project(file);
-                var targets = project.Targets.Keys.ToArray();
-                Debug.Assert(MAX_TARGETS > targets.Length);
-                for (int i = 0; i < MAX_TARGETS; i++)
+                var command = (OleMenuCommand)sender;
+                var index = command.CommandID.ID - PkgCmdIDList.cmdidRunTargetDynamicDummy;
+                if (index < targets.Length)
                 {
-                    if (i > targets.Length && targetCommands[i].Visible == false)
-                    {
-                        break;
-                    }
-                    else if (i < targets.Length)
-                    {
-                        targetCommands[i].Visible = true;
-                        targetCommands[i].Text = targets[i];
-                    }
-                    else
-                    {
-                        targetCommands[i].Visible = false;
-                    }
+                    command.Text = targets[index].Name;
+                    command.Visible = true;
+                }
+                else
+                {
+                    command.Visible = false;
                 }
             }
         }
 
         private void RunTargetItem_Invoke(object sender, EventArgs e)
         {
-            // Show a Message Box to prove we were here
-            IVsUIShell uiShell = (IVsUIShell)GetService(typeof(SVsUIShell));
-            Guid clsid = Guid.Empty;
-            int result;
-            Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(uiShell.ShowMessageBox(
-                       0,
-                       ref clsid,
-                       "VS2010Addin",
-                       string.Format(CultureInfo.CurrentCulture, "Inside {0}.MenuItemCallback()", this.ToString()),
-                       string.Empty,
-                       0,
-                       OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                       OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST,
-                       OLEMSGICON.OLEMSGICON_INFO,
-                       0,        // false
-                       out result));
+            if (targets != null)
+            {
+                var command = (OleMenuCommand)sender;
+                var index = command.CommandID.ID - PkgCmdIDList.cmdidRunTargetDynamicDummy;
+                if (index < targets.Length)
+                {
+                    var target = targets[index];
+                    bool buildResult = project.Build(
+                        targets[index].Name,
+                        new[] { new OutputWindowLogger() }
+                    );
+                }
+            }
         }
 
         private string GetCurrentSelectedItem()
         {
-            var DTE = Package.GetGlobalService(typeof(DTE)) as DTE;
+            var DTE = Package.GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
             if (DTE.SelectedItems.Count > 0)
             {
                 var item = DTE.SelectedItems.Item(1);
