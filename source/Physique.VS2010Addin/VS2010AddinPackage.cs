@@ -50,8 +50,6 @@ namespace Physique.VS2010Addin
             Trace.WriteLine(string.Format(CultureInfo.CurrentCulture, "Entering constructor for: {0}", this.ToString()));
         }
 
-
-
         /////////////////////////////////////////////////////////////////////////////
         // Overriden Package Implementation
         #region Package Members
@@ -75,18 +73,10 @@ namespace Physique.VS2010Addin
             var outputWindowService = GetService(typeof(SVsOutputWindow)) as IVsOutputWindow;
             if (outputWindowService != null)
             {
-                Guid guidPane = new Guid(GuidList.guidVS2010AddinOutputPane);
+                Guid guidPane = Microsoft.VisualStudio.VSConstants.OutputWindowPaneGuid.BuildOutputPane_guid;
                 if (outputWindowService.GetPane(ref guidPane, out outputPane) != VSConstants.S_OK)
                 {
-                    int createPaneResult = outputWindowService.CreatePane(guidPane, "Run Target", 0, 1);
-                    if (createPaneResult != VSConstants.S_OK)
-                    {
-                        throw new NotSupportedException();
-                    }
-                    if (outputWindowService.GetPane(ref guidPane, out outputPane) != VSConstants.S_OK)
-                    {
-                        throw new NotSupportedException();
-                    }
+                    throw new NotSupportedException();
                 }
             }
 
@@ -188,26 +178,44 @@ namespace Physique.VS2010Addin
 
         private void ExecuteTarget(ProjectTargetInstance target)
         {
-            outputPane.Activate();
-            outputPane.OutputString(string.Format("Running target {0} on project {1}...\n", target.Name, project.FullPath));
+            IVsBuildManagerAccessor accessor = GetService(typeof(SVsBuildManagerAccessor)) as IVsBuildManagerAccessor;
 
-            // TODO: Is it possible to get access to the VS-internal MSBuild engine and use that?
-            var task = System.Threading.Tasks.Task.Factory.StartNew(() => project.Build(
-                    target.Name,
-                    new ILogger[] {
-                            new OutputWindowLogger(outputPane) { Verbosity = LoggerVerbosity.Normal }
-                        }
-                )).ContinueWith((t) =>
-                {
-                    if (t.Result)
+            if (accessor.ClaimUIThreadForBuild() != VSConstants.S_OK)
+            {
+                throw new NotImplementedException();
+            }
+
+            try
+            {
+                outputPane.Activate();
+                outputPane.Clear();
+
+                var logger = new OutputWindowLogger(outputPane) { Verbosity = LoggerVerbosity.Quiet };
+                var buildManager = BuildManager.DefaultBuildManager;
+                buildManager.BeginBuild(new BuildParameters { Loggers = new[] { logger } });
+
+                BuildRequestData requestData = new BuildRequestData(
+                    project.CreateProjectInstance(),
+                    new[] { target.Name },
+                    null,
+                    BuildRequestDataFlags.ReplaceExistingProjectInstance
+                );
+                BuildManager.DefaultBuildManager
+                    .PendBuildRequest(requestData)
+                    .ExecuteAsync((submission) =>
                     {
-                        outputPane.OutputString("SUCCESS\n");
-                    }
-                    else
-                    {
-                        outputPane.OutputString("FAILED\n");
-                    }
-                });
+                        buildManager.EndBuild();
+                        var result = submission.BuildResult;
+                    }, null);
+
+                //BuildResult buildResult = submission.Execute();
+
+                //buildManager.EndBuild();
+            }
+            finally
+            {
+                accessor.ReleaseUIThreadForBuild();
+            }
         }
 
         private string GetCurrentSelectedItem()
