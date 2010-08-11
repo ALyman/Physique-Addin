@@ -35,7 +35,10 @@
       <Group guid="guidVS2010AddinCmdSet" id="TopLevelProjectContextGroup" priority="0x0001">
         <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_PROJNODE"/>
       </Group>
-      <Group guid="guidVS2010AddinCmdSet" id="RunTargetMenuGroup" priority="0x0600">
+      <Group guid="guidVS2010AddinCmdSet" id="RunTargetMenuGroup" priority="0x0000">
+        <Parent guid="guidVS2010AddinCmdSet" id="cmdidRunTargetMenu"/>
+      </Group>
+      <Group guid="guidVS2010AddinCmdSet" id="RunTargetOtherMenuGroup" priority="0x0100">
         <Parent guid="guidVS2010AddinCmdSet" id="cmdidRunTargetMenu"/>
       </Group>
     </Groups>
@@ -54,8 +57,16 @@
         <CommandFlag>DynamicItemStart</CommandFlag>
         <CommandFlag>DynamicVisibility</CommandFlag>
         <Strings>
-          <CommandName>cmdidTestSubCommand</CommandName>
+          <CommandName>cmdidRunTargetDynamicDummy</CommandName>
           <ButtonText>DUMMY</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidVS2010AddinCmdSet" id="cmdidRunTargetOther" priority="0x0100" type="Button">
+        <Parent guid="guidVS2010AddinCmdSet" id="RunTargetOtherMenuGroup" />
+        <Strings>
+          <CommandName>cmdidRunTargetOther</CommandName>
+          <ButtonText>Other...</ButtonText>
         </Strings>
       </Button>
     </Buttons>
@@ -75,6 +86,8 @@
       <IDSymbol name="TopLevelProjectContextGroup" value="0x1001"/>
       <IDSymbol name="cmdidRunTargetMenu" value="0x100"/>
       <IDSymbol name="RunTargetMenuGroup" value="0x101"/>
+      <IDSymbol name="RunTargetOtherMenuGroup" value="0x102"/>
+      <IDSymbol name="cmdidRunTargetOther" value="0x103"/>
       <IDSymbol name="cmdidRunTargetDynamicDummy" value="0x200"/>
     </GuidSymbol>
   </Symbols>

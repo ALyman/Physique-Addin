@@ -12,6 +12,7 @@ using Microsoft.VisualStudio.Shell;
 using Microsoft.Build.Framework;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio;
+using Microsoft.Internal.VisualStudio.PlatformUI;
 
 namespace Physique.VS2010Addin
 {
@@ -126,6 +127,10 @@ namespace Physique.VS2010Addin
                 mcs.AddCommand(targetDummy);
                 targetCommands.Add(targetDummy);
             }
+
+            var runTargetOtherMenuId = new CommandID(GuidList.guidVS2010AddinCmdSet, (int)PkgCmdIDList.cmdidRunTargetOther);
+            var runTargetOtherMenu = new OleMenuCommand(runTargetOtherMenu_clicked, runTargetOtherMenuId);
+            mcs.AddCommand(runTargetOtherMenu);
         }
 
         void RunTargetMenu_BeforeQueryStatus(object sender, EventArgs e)
@@ -176,30 +181,33 @@ namespace Physique.VS2010Addin
                 if (index < targets.Length)
                 {
                     var target = targets[index];
-
-                    outputPane.Activate();
-                    outputPane.OutputString(string.Format("Running target {0} on project {1}... ", target.Name, project.FullPath));
-
-                    // TODO: Is it possible to get access to the VS-internal MSBuild engine and use that?
-                    var task = System.Threading.Tasks.Task.Factory.StartNew(() => project.Build(
-                            targets[index].Name,
-                            new ILogger[] {
-                            // TODO: Why does VS deadlock when I try to output to the output window?  Can I get a hold of VS's internal ILogger, perhaps?
-                            new OutputWindowLogger(outputPane) { Verbosity = LoggerVerbosity.Normal }
-                        }
-                        )).ContinueWith((t) =>
-                        {
-                            if (t.Result)
-                            {
-                                outputPane.OutputString("SUCCESS\n");
-                            }
-                            else
-                            {
-                                outputPane.OutputString("FAILED\n");
-                            }
-                        }); ;
+                    ExecuteTarget(target);
                 }
             }
+        }
+
+        private void ExecuteTarget(ProjectTargetInstance target)
+        {
+            outputPane.Activate();
+            outputPane.OutputString(string.Format("Running target {0} on project {1}...\n", target.Name, project.FullPath));
+
+            // TODO: Is it possible to get access to the VS-internal MSBuild engine and use that?
+            var task = System.Threading.Tasks.Task.Factory.StartNew(() => project.Build(
+                    target.Name,
+                    new ILogger[] {
+                            new OutputWindowLogger(outputPane) { Verbosity = LoggerVerbosity.Normal }
+                        }
+                )).ContinueWith((t) =>
+                {
+                    if (t.Result)
+                    {
+                        outputPane.OutputString("SUCCESS\n");
+                    }
+                    else
+                    {
+                        outputPane.OutputString("FAILED\n");
+                    }
+                });
         }
 
         private string GetCurrentSelectedItem()
@@ -226,6 +234,16 @@ namespace Physique.VS2010Addin
         {
             var ext = Path.GetExtension(file);
             return ext.EndsWith("proj");
+        }
+
+        public void runTargetOtherMenu_clicked(object sender, EventArgs e)
+        {
+            var dialog = new TargetSelectionDialog(project);
+            var result = dialog.ShowDialog();
+            if (result == System.Windows.Forms.DialogResult.OK)
+            {
+                ExecuteTarget(dialog.SelectedTarget);
+            }
         }
     }
 }
