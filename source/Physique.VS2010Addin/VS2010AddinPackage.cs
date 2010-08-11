@@ -181,22 +181,23 @@ namespace Physique.VS2010Addin
                     outputPane.OutputString(string.Format("Running target {0} on project {1}... ", target.Name, project.FullPath));
 
                     // TODO: Is it possible to get access to the VS-internal MSBuild engine and use that?
-                    bool buildResult = project.Build(
-                        targets[index].Name,
-                        new ILogger[] {
+                    var task = System.Threading.Tasks.Task.Factory.StartNew(() => project.Build(
+                            targets[index].Name,
+                            new ILogger[] {
                             // TODO: Why does VS deadlock when I try to output to the output window?  Can I get a hold of VS's internal ILogger, perhaps?
-                            ////new OutputWindowLogger(outputPane) { Verbosity = LoggerVerbosity.Normal }
+                            new OutputWindowLogger(outputPane) { Verbosity = LoggerVerbosity.Normal }
                         }
-                    );
-
-                    if (buildResult)
-                    {
-                        outputPane.OutputString("SUCCESS\n");
-                    }
-                    else
-                    {
-                        outputPane.OutputString("FAILED\n");
-                    }
+                        )).ContinueWith((t) =>
+                        {
+                            if (t.Result)
+                            {
+                                outputPane.OutputString("SUCCESS\n");
+                            }
+                            else
+                            {
+                                outputPane.OutputString("FAILED\n");
+                            }
+                        }); ;
                 }
             }
         }

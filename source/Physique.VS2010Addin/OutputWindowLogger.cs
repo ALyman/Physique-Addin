@@ -97,7 +97,7 @@ namespace Physique.VS2010Addin
         /// </summary>
         private void WriteLine(string line, BuildEventArgs e)
         {
-            outputPane.OutputStringThreadSafe(line + e.Message);
+            outputPane.OutputString(line + e.Message + Environment.NewLine);
         }
 
         /// <summary>
