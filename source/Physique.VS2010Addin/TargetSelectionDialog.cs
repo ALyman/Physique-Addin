@@ -14,8 +14,6 @@ namespace Physique.VS2010Addin
 {
     public partial class TargetSelectionDialog : Form
     {
-        private Microsoft.Build.Evaluation.Project project;
-
         public TargetSelectionDialog(Microsoft.Build.Evaluation.Project project)
         {
             InitializeComponent();

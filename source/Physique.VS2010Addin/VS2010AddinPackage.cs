@@ -13,6 +13,7 @@ using Microsoft.Build.Framework;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio;
 using Microsoft.Internal.VisualStudio.PlatformUI;
+using VSXtra.ProjectSystem;
 
 namespace Physique.VS2010Addin
 {
@@ -59,6 +60,7 @@ namespace Physique.VS2010Addin
             base.OnLoadOptions(key, stream);
         }
 
+        TaskProvider taskProvider;
         IVsOutputWindowPane outputPane;
 
         /// <summary>
@@ -69,6 +71,8 @@ namespace Physique.VS2010Addin
         {
             Trace.WriteLine(string.Format(CultureInfo.CurrentCulture, "Entering Initialize() of: {0}", this.ToString()));
             base.Initialize();
+
+            taskProvider = new TaskProvider(this);
 
             var outputWindowService = GetService(typeof(SVsOutputWindow)) as IVsOutputWindow;
             if (outputWindowService != null)
@@ -98,6 +102,7 @@ namespace Physique.VS2010Addin
         ProjectCollection loadedProjects = new ProjectCollection();
         Project project;
         ProjectTargetInstance[] targets;
+        IVsHierarchy hierarchy;
 
         private void InitializeMenus(OleMenuCommandService mcs)
         {
@@ -125,7 +130,7 @@ namespace Physique.VS2010Addin
 
         void RunTargetMenu_BeforeQueryStatus(object sender, EventArgs e)
         {
-            var file = GetCurrentSelectedItem();
+            var file = GetCurrentSelectedItem(out hierarchy);
             if (file != null && IsMsBuildFile(file))
             {
                 runTargetMenu.Visible = true;
@@ -190,9 +195,20 @@ namespace Physique.VS2010Addin
                 outputPane.Activate();
                 outputPane.Clear();
 
-                var logger = new OutputWindowLogger(outputPane) { Verbosity = LoggerVerbosity.Quiet };
+                outputPane.OutputString(string.Format("------ Run target started: Project: {0}, Target: {1} ------" + Environment.NewLine,
+                    project.FullPath,
+                    target.Name));
+
                 var buildManager = BuildManager.DefaultBuildManager;
-                buildManager.BeginBuild(new BuildParameters { Loggers = new[] { logger } });
+                buildManager.BeginBuild(new BuildParameters
+                {
+                    Loggers = new[] {
+                        new IDEBuildLogger(
+                            outputPane,
+                            taskProvider,
+                            hierarchy)
+                    }
+                });
 
                 BuildRequestData requestData = new BuildRequestData(
                     project.CreateProjectInstance(),
@@ -205,7 +221,12 @@ namespace Physique.VS2010Addin
                     .ExecuteAsync((submission) =>
                     {
                         buildManager.EndBuild();
-                        var result = submission.BuildResult;
+                        var targetResults = submission.BuildResult.ResultsByTarget.Values;
+
+                        outputPane.OutputString(string.Format("========== Build: {0} succeeded, {1} failed, {2} skipped ==========" + Environment.NewLine,
+                            targetResults.Count(tr => tr.ResultCode == TargetResultCode.Success),
+                            targetResults.Count(tr => tr.ResultCode == TargetResultCode.Failure),
+                            targetResults.Count(tr => tr.ResultCode == TargetResultCode.Skipped)));
                     }, null);
 
                 //BuildResult buildResult = submission.Execute();
@@ -218,21 +239,28 @@ namespace Physique.VS2010Addin
             }
         }
 
-        private string GetCurrentSelectedItem()
+        private string GetCurrentSelectedItem(out IVsHierarchy hierarchy)
         {
-            var DTE = Package.GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
-            if (DTE.SelectedItems.Count > 0)
+            var sel = GetService(typeof(SVsShellMonitorSelection)) as IVsMonitorSelection;
+            IntPtr hierPtr, ppSC;
+            uint itemId;
+            IVsMultiItemSelect mis;
+            var result = sel.GetCurrentSelection(out hierPtr, out itemId, out mis, out ppSC);
+            hierarchy = Marshal.GetObjectForIUnknown(hierPtr) as IVsHierarchy;
+
+            object dteObject;
+            ErrorHandler.ThrowOnFailure(hierarchy.GetProperty(
+                itemId,
+                (int)__VSHPROPID.VSHPROPID_ExtObject,
+                out dteObject));
+
+            if (dteObject is EnvDTE.Project)
             {
-                var item = DTE.SelectedItems.Item(1);
-                if (item.Project != null)
-                {
-                    return item.Project.FullName;
-                }
-                else if (item.ProjectItem != null)
-                {
-                    Debug.Assert(item.ProjectItem.FileCount == 1);
-                    return item.ProjectItem.FileNames[0];
-                }
+                return ((EnvDTE.Project)dteObject).FullName;
+            }
+            else if (dteObject is EnvDTE.ProjectItem)
+            {
+                return ((EnvDTE.ProjectItem)dteObject).FileNames[0];
             }
 
             return null;
